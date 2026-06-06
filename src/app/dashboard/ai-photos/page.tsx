@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useApp } from "@/context/AppContext";
 import { 
   Camera, Sparkles, Upload, RefreshCw, CheckCircle, 
-  ArrowRight, Download, Award, ChevronRight, Image as ImageIcon
+  Download, Award, ChevronRight, Image as ImageIcon, X
 } from "lucide-react";
 
 export default function AiPhotosPage() {
@@ -12,7 +12,12 @@ export default function AiPhotosPage() {
   const [selectedStyle, setSelectedStyle] = useState<"linkedin" | "corporate" | "executive">("linkedin");
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
-  const [uploadedFile, setUploadedFile] = useState<boolean>(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Ref vers l'input file caché
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isBusiness = user?.plan === "business";
 
@@ -22,28 +27,99 @@ export default function AiPhotosPage() {
     { id: "executive", name: "Portrait Executive", desc: "Rendu haut de gamme, arrière-plan de centre d'affaires flouté en extérieur." }
   ];
 
+  // Ouvre le sélecteur de fichiers natif du système
   const handleUploadClick = () => {
-    setUploadedFile(true);
+    fileInputRef.current?.click();
+  };
+
+  // Traite le fichier sélectionné (depuis l'input ou le drag & drop)
+  const processFile = useCallback((file: File) => {
+    // Vérifier que c'est bien une image
+    if (!file.type.startsWith("image/")) {
+      alert("Veuillez sélectionner un fichier image (JPG, PNG, WEBP, etc.).");
+      return;
+    }
+    // Limiter à 10 Mo
+    if (file.size > 10 * 1024 * 1024) {
+      alert("La photo ne doit pas dépasser 10 Mo.");
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Générer un aperçu local via URL.createObjectURL
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+  }, [previewUrl]);
+
+  // Gestion du changement de fichier via l'input
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+    // Réinitialiser la valeur pour permettre de re-sélectionner le même fichier
+    e.target.value = "";
+  };
+
+  // Supprime le fichier sélectionné
+  const handleRemoveFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
+
+  // Gestion du drag & drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
   };
 
   const handleTransform = async () => {
-    if (!uploadedFile) return;
+    if (!selectedFile) return;
     setLoading(true);
     setProgressStep(1);
 
-    // Simulate multi-step processing progress
+    // Simulation des étapes de progression
     setTimeout(() => setProgressStep(2), 700);
     setTimeout(() => setProgressStep(3), 1400);
     setTimeout(() => setProgressStep(4), 2000);
 
-    const mockFile = new File([""], "portrait.jpg", { type: "image/jpeg" });
-    await transformPhoto(mockFile, selectedStyle);
+    // Passage du fichier réel à la fonction de transformation
+    await transformPhoto(selectedFile, selectedStyle);
     
     setLoading(false);
     setProgressStep(0);
   };
 
-  // Gate check
+  // Formatage de la taille du fichier
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} o`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+  };
+
+  // Gate check — plan requis
   if (!isBusiness) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center min-h-[70vh]">
@@ -98,32 +174,77 @@ export default function AiPhotosPage() {
             <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> Studio Photo IA Premium
           </span>
           <h3 className="text-lg font-bold mt-2">Générer une photo pro</h3>
-          <p className="text-xxs text-zinc-400 mt-1">Sélectionnez un style et importez un selfie ordinaire pour lancer l'intelligence artificielle.</p>
+          <p className="text-xs text-zinc-400 mt-1">Sélectionnez un style et importez un selfie ordinaire pour lancer l'intelligence artificielle.</p>
         </div>
 
-        {/* Upload box */}
+        {/* Input file caché — déclenché par le clic sur la zone */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+          aria-label="Sélectionner une photo depuis votre ordinateur"
+        />
+
+        {/* Zone d'upload drag & drop */}
         <div 
           onClick={handleUploadClick}
-          className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
-            uploadedFile 
-              ? "border-green-500 bg-green-500/5" 
-              : "border-gray-200 dark:border-zinc-800 hover:border-indigo-500 bg-zinc-50/50 dark:bg-zinc-950/20"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && handleUploadClick()}
+          aria-label="Zone d'import de photo — cliquez ou glissez-déposez"
+          className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 relative ${
+            isDragging
+              ? "border-indigo-500 bg-indigo-500/5 scale-[1.01]"
+              : selectedFile 
+                ? "border-green-500 bg-green-500/5" 
+                : "border-gray-200 dark:border-zinc-800 hover:border-indigo-400 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/10 bg-zinc-50/50 dark:bg-zinc-950/20"
           }`}
         >
-          {uploadedFile ? (
+          {selectedFile ? (
             <>
-              <CheckCircle className="w-8 h-8 text-green-500" />
-              <div>
-                <p className="text-xs font-bold text-green-600">Selfie_Uploader.jpg importé !</p>
-                <p className="text-[10px] text-zinc-400 mt-1">Prêt pour la transformation.</p>
+              {/* Aperçu de la photo sélectionnée */}
+              {previewUrl && (
+                <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-green-400 shadow-md">
+                  <img
+                    src={previewUrl}
+                    alt="Aperçu de la photo sélectionnée"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                  <p className="text-xs font-bold text-green-600 truncate max-w-[180px]">{selectedFile.name}</p>
+                </div>
+                <p className="text-[10px] text-zinc-400">{formatFileSize(selectedFile.size)} · Prêt pour la transformation</p>
               </div>
+              {/* Bouton pour retirer le fichier */}
+              <button
+                onClick={handleRemoveFile}
+                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 hover:bg-red-100 dark:hover:bg-red-900/40 text-zinc-500 hover:text-red-500 flex items-center justify-center transition-colors"
+                aria-label="Retirer la photo sélectionnée"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </>
           ) : (
             <>
-              <Upload className="w-8 h-8 text-zinc-300" />
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${isDragging ? "bg-indigo-500/20" : "bg-zinc-100 dark:bg-zinc-800"}`}>
+                <Upload className={`w-6 h-6 transition-colors ${isDragging ? "text-indigo-500" : "text-zinc-400"}`} />
+              </div>
               <div>
-                <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Importer un selfie / photo existante</p>
-                <p className="text-[10px] text-zinc-400 mt-1">Glissez-déposez ou cliquez pour parcourir les fichiers.</p>
+                <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                  {isDragging ? "Déposez votre photo ici" : "Importer une photo"}
+                </p>
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  Cliquez pour parcourir ou glissez-déposez · JPG, PNG, WEBP · Max 10 Mo
+                </p>
               </div>
             </>
           )}
@@ -138,7 +259,7 @@ export default function AiPhotosPage() {
               return (
                 <div
                   key={style.id}
-                  onClick={() => setSelectedStyle(style.id as any)}
+                  onClick={() => setSelectedStyle(style.id as "linkedin" | "corporate" | "executive")}
                   className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all flex gap-3 items-center ${
                     isSelected 
                       ? "border-indigo-500 bg-indigo-50/10 dark:bg-indigo-950/20" 
@@ -149,7 +270,8 @@ export default function AiPhotosPage() {
                     type="radio" 
                     checked={isSelected} 
                     readOnly
-                    className="text-indigo-500"
+                    className="text-indigo-500 accent-indigo-600"
+                    aria-label={style.name}
                   />
                   <div>
                     <h4 className="font-bold text-zinc-800 dark:text-zinc-200">{style.name}</h4>
@@ -163,8 +285,8 @@ export default function AiPhotosPage() {
 
         <button
           onClick={handleTransform}
-          disabled={!uploadedFile || loading}
-          className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-indigo-600/10 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+          disabled={!selectedFile || loading}
+          className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs shadow-lg shadow-indigo-600/10 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
         >
           {loading ? (
             <>
@@ -181,7 +303,7 @@ export default function AiPhotosPage() {
       {/* GALLERY PREVIEW PANEL (RIGHT) */}
       <div className="bg-white dark:bg-zinc-900 border border-gray-200/50 dark:border-zinc-800/80 rounded-3xl p-6 shadow-sm flex flex-col gap-6 overflow-hidden">
         <h3 className="font-bold text-sm text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-          <ImageIcon className="w-4 h-4 text-indigo-500" /> Galerie & Rendu final
+          <ImageIcon className="w-4 h-4 text-indigo-500" /> Galerie &amp; Rendu final
         </h3>
 
         {loading ? (
@@ -201,7 +323,6 @@ export default function AiPhotosPage() {
           </div>
         ) : photoUrl ? (
           <div className="flex flex-col gap-6 items-center">
-            {/* Show results */}
             <div className="w-64 h-64 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-md">
               <img 
                 src={photoUrl} 
@@ -211,8 +332,11 @@ export default function AiPhotosPage() {
             </div>
 
             <div className="text-center max-w-xs">
-              <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Portrait haute définition prêt !</p>
-              <p className="text-[10px] text-zinc-400 leading-normal mt-1">Vous pouvez maintenant télécharger cette image et l'utiliser sur LinkedIn ou sur votre CV.</p>
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <Award className="w-4 h-4 text-amber-500" />
+                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Portrait haute définition prêt !</p>
+              </div>
+              <p className="text-[10px] text-zinc-400 leading-normal">Vous pouvez maintenant télécharger cette image et l'utiliser sur LinkedIn ou sur votre CV.</p>
             </div>
 
             <a
@@ -229,7 +353,7 @@ export default function AiPhotosPage() {
           <div className="p-8 border border-dashed border-gray-200 dark:border-zinc-800 rounded-3xl text-center flex flex-col items-center justify-center gap-3 h-64">
             <Camera className="w-10 h-10 text-zinc-300" />
             <p className="text-xs font-semibold text-zinc-400 max-w-xs leading-normal">
-              Importez une photo et cliquez sur le bouton de transformation pour voir votre portrait professionnel généré s'afficher ici.
+              Importez une photo depuis votre ordinateur et cliquez sur le bouton de transformation pour voir votre portrait professionnel s'afficher ici.
             </p>
           </div>
         )}
