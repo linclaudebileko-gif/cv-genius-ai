@@ -307,10 +307,22 @@ export default function AiPhotosPage() {
         </h3>
 
         {loading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center animate-spin">
-              <RefreshCw className="w-6 h-6" />
-            </div>
+          /* ── État : transformation en cours ── */
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
+            {/* Aperçu de la photo originale avec overlay de chargement */}
+            {previewUrl && (
+              <div className="relative w-48 h-48 rounded-2xl overflow-hidden border-2 border-indigo-400 shadow-lg">
+                <img
+                  src={previewUrl}
+                  alt="Photo en cours de transformation"
+                  className="w-full h-full object-cover opacity-50"
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-indigo-950/40 backdrop-blur-sm">
+                  <RefreshCw className="w-8 h-8 text-indigo-300 animate-spin mb-2" />
+                  <span className="text-[10px] text-indigo-200 font-bold">IA en cours...</span>
+                </div>
+              </div>
+            )}
             <div className="text-center">
               <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
                 {progressStep === 1 && "Alignement et détection des repères faciaux..."}
@@ -320,15 +332,49 @@ export default function AiPhotosPage() {
               </p>
               <p className="text-[10px] text-zinc-400 mt-1">Veuillez patienter quelques secondes.</p>
             </div>
+            {/* Barre de progression */}
+            <div className="w-full max-w-xs bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                style={{ width: `${(progressStep / 4) * 100}%` }}
+              />
+            </div>
           </div>
         ) : photoUrl ? (
-          <div className="flex flex-col gap-6 items-center">
-            <div className="w-64 h-64 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-md">
-              <img 
-                src={photoUrl} 
-                alt="Portrait professionnel généré par IA" 
-                className="w-full h-full object-cover"
-              />
+          /* ── État : transformation terminée — comparatif avant/après ── */
+          <div className="flex flex-col gap-5 items-center">
+            <div className="w-full grid grid-cols-2 gap-3">
+              {/* AVANT */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase text-center">Avant</span>
+                <div className="aspect-square rounded-xl overflow-hidden border-2 border-zinc-200 dark:border-zinc-700 shadow-sm">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Photo originale importée"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                      <Camera className="w-6 h-6 text-zinc-300" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* APRÈS */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-indigo-500 uppercase text-center flex items-center justify-center gap-1">
+                  <Sparkles className="w-3 h-3" /> Après IA
+                </span>
+                <div className="aspect-square rounded-xl overflow-hidden border-2 border-indigo-400 shadow-md ring-2 ring-indigo-500/20">
+                  <img
+                    src={photoUrl}
+                    alt="Portrait professionnel généré par IA"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="text-center max-w-xs">
@@ -336,7 +382,7 @@ export default function AiPhotosPage() {
                 <Award className="w-4 h-4 text-amber-500" />
                 <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Portrait haute définition prêt !</p>
               </div>
-              <p className="text-[10px] text-zinc-400 leading-normal">Vous pouvez maintenant télécharger cette image et l'utiliser sur LinkedIn ou sur votre CV.</p>
+              <p className="text-[10px] text-zinc-400 leading-normal">Utilisez cette image sur votre CV, LinkedIn ou portfolio.</p>
             </div>
 
             <a
@@ -344,16 +390,41 @@ export default function AiPhotosPage() {
               download="photo-professionnelle.jpg"
               target="_blank"
               rel="noopener noreferrer"
-              className="py-3 px-6 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 font-bold rounded-xl text-xs transition-colors shadow-md flex items-center gap-2"
+              className="w-full py-3 px-6 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 font-bold rounded-xl text-xs transition-colors shadow-md flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4" /> Télécharger en Haute Définition
             </a>
           </div>
+        ) : previewUrl ? (
+          /* ── État : photo importée, pas encore transformée ── */
+          <div className="flex flex-col gap-4 items-center">
+            <div className="relative w-full max-w-xs aspect-square rounded-2xl overflow-hidden border-2 border-green-400 shadow-md">
+              <img
+                src={previewUrl}
+                alt="Photo importée prête à transformer"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
+                <p className="text-[10px] text-white font-bold truncate">{selectedFile?.name}</p>
+                <p className="text-[9px] text-white/70">{selectedFile ? formatFileSize(selectedFile.size) : ""}</p>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Photo importée avec succès</p>
+              </div>
+              <p className="text-[10px] text-zinc-400 max-w-xs leading-normal">
+                Choisissez un style et cliquez sur <strong>"Lancer la transformation IA"</strong> pour générer votre portrait professionnel.
+              </p>
+            </div>
+          </div>
         ) : (
+          /* ── État : vide ── */
           <div className="p-8 border border-dashed border-gray-200 dark:border-zinc-800 rounded-3xl text-center flex flex-col items-center justify-center gap-3 h-64">
             <Camera className="w-10 h-10 text-zinc-300" />
             <p className="text-xs font-semibold text-zinc-400 max-w-xs leading-normal">
-              Importez une photo depuis votre ordinateur et cliquez sur le bouton de transformation pour voir votre portrait professionnel s'afficher ici.
+              Importez une photo depuis votre ordinateur pour la voir apparaître ici avant transformation.
             </p>
           </div>
         )}
