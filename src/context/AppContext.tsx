@@ -283,6 +283,7 @@ interface AppContextType {
 
   // Photo Professional
   photoUrl: string | null;
+  transformedStyle: "linkedin" | "corporate" | "executive" | null;
   transformPhoto: (file: File, style: "linkedin" | "corporate" | "executive") => Promise<string>;
 }
 
@@ -581,15 +582,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // 7. Professional photo
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const transformPhoto = async (file: File, style: "linkedin" | "corporate" | "executive"): Promise<string> => {
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    let mockUrl = "";
-    if (style === "linkedin") mockUrl = "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=350&auto=format&fit=crop"; // professional headshot
-    if (style === "corporate") mockUrl = "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=350&auto=format&fit=crop";
-    if (style === "executive") mockUrl = "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=350&auto=format&fit=crop";
+  const [transformedStyle, setTransformedStyle] = useState<"linkedin" | "corporate" | "executive" | null>(null);
 
-    setPhotoUrl(mockUrl);
-    return mockUrl;
+  const transformPhoto = async (file: File, style: "linkedin" | "corporate" | "executive"): Promise<string> => {
+    // Simulate AI processing time
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
+    // Use the actual uploaded file as the result — CSS filters applied on the frontend
+    // to simulate professional photo enhancement without a real AI API
+    const objectUrl = URL.createObjectURL(file);
+    setPhotoUrl(objectUrl);
+    setTransformedStyle(style);
+    return objectUrl;
   };
 
   return (
@@ -618,6 +622,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setPortfolioSubdomain,
         generatePortfolio,
         photoUrl,
+        transformedStyle,
         transformPhoto
       }}
     >

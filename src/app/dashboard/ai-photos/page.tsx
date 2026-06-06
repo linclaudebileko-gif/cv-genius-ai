@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 export default function AiPhotosPage() {
-  const { user, photoUrl, transformPhoto, updateUserPlan } = useApp();
+  const { user, photoUrl, transformedStyle, transformPhoto, updateUserPlan } = useApp();
   const [selectedStyle, setSelectedStyle] = useState<"linkedin" | "corporate" | "executive">("linkedin");
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
@@ -117,6 +117,23 @@ export default function AiPhotosPage() {
     if (bytes < 1024) return `${bytes} o`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+  };
+
+  // Filtres CSS simulant le rendu IA selon le style choisi
+  const getStyleFilter = (style: "linkedin" | "corporate" | "executive" | null): string => {
+    switch (style) {
+      case "linkedin":
+        // Éclairage studio doux : luminosité légère, contraste accru, légère saturation
+        return "brightness(1.12) contrast(1.18) saturate(1.15) drop-shadow(0 4px 16px rgba(0,0,0,0.25))";
+      case "corporate":
+        // Ambiance corporate chaleureuse : tons chauds, haute netteté
+        return "brightness(1.08) contrast(1.22) saturate(1.3) sepia(0.12) drop-shadow(0 4px 16px rgba(80,40,0,0.2))";
+      case "executive":
+        // Portrait executive dramatique : contraste élevé, légèrement désaturé, froid
+        return "brightness(1.05) contrast(1.35) saturate(0.85) hue-rotate(-8deg) drop-shadow(0 6px 24px rgba(0,0,60,0.35))";
+      default:
+        return "none";
+    }
   };
 
   // Gate check — plan requis
@@ -371,7 +388,8 @@ export default function AiPhotosPage() {
                   <img
                     src={photoUrl}
                     alt="Portrait professionnel généré par IA"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-all duration-700"
+                    style={{ filter: getStyleFilter(transformedStyle) }}
                   />
                 </div>
               </div>
